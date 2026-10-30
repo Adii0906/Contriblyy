@@ -1,0 +1,186 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   Contribly design tokens
+   Warm white canvas, white paper, peach surfaces, charcoal ink,
+   orange brand. Green and red are reserved for verified signals.
+------------------------------------------------------------------- */
+:root {
+  --canvas: #fff9f2;
+  --paper: #ffffff;
+  --peach: #ffe5d5;
+  --peach-soft: #fff1e7;
+  --sand: #f6ece1;
+  --line: #efe3d6;
+  --line-strong: #e3d2c1;
+  --ink: #202020;
+  --ink-2: #47423e;
+  --muted: #77716b;
+  --brand: #ff6b35;
+  --brand-hi: #ff7a45;
+  --brand-ink: #c2410c; /* orange for small text on light backgrounds (AA) */
+  --ok: #15803d;
+  --ok-soft: #e7f5ea;
+  --bad: #d92d20;
+  --bad-soft: #fdecea;
+  --warn: #a15c07;
+  --warn-soft: #fcf1dc;
+  --idle: #e9ddd0;
+
+  --shadow-card: 0 1px 0 rgba(32, 24, 16, 0.04), 0 8px 24px -12px rgba(120, 72, 30, 0.18);
+  --shadow-lift: 0 2px 0 rgba(32, 24, 16, 0.04), 0 22px 44px -18px rgba(150, 80, 30, 0.28);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-paper: var(--paper);
+  --color-peach: var(--peach);
+  --color-peach-soft: var(--peach-soft);
+  --color-sand: var(--sand);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-hi: var(--brand-hi);
+  --color-brand-ink: var(--brand-ink);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-idle: var(--idle);
+
+  --font-display: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
+
+  --animate-sheen: sheen 1.5s ease-in-out infinite;
+  --animate-spin-slow: spin 4s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-float-b: float 9s ease-in-out -3s infinite;
+}
+
+@keyframes sheen {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+html { background: var(--canvas); }
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--peach); color: var(--ink); }
+
+/* One focus style everywhere: charcoal ring with an orange halo */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(255, 107, 53, 0.35);
+  border-radius: 8px;
+}
+
+.font-display { font-family: var(--font-display); }
+
+/* Dotted engineering grid used on the hero stage and empty states */
+.dot-grid {
+  background-image: radial-gradient(rgba(32, 32, 32, 0.13) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+}
+
+/* Skeleton shimmer, warm */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--sand);
+  border-radius: 6px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  animation: sheen 1.5s ease-in-out infinite;
+}
+
+/* Rotating conic glow for the active search field */
+.search-glow { position: relative; isolation: isolate; }
+.search-glow::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 18px;
+  padding: 2px;
+  background: conic-gradient(from var(--angle, 0deg), transparent 0deg, var(--brand) 70deg, var(--brand-hi) 120deg, transparent 200deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.25s;
+  animation: glow-spin 3.2s linear infinite;
+  z-index: -1;
+}
+.search-glow:focus-within::before { opacity: 1; }
+@property --angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@keyframes glow-spin { to { --angle: 360deg; } }
+
+.scroll-thin { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Hand-drawn scratch over a whole title. Painted as a background on an inline
+   element with box-decoration-break: clone, so every line fragment of a wrapped
+   title gets its own full-width scratch, from first to last character. */
+.scratch-text {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0.6 12.4 C 14 10.9, 30 12.2, 47 10.6 S 80 9.4, 99.4 8.2' fill='none' stroke='%23d92d20' stroke-width='2.3' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M1.2 8.6 C 20 10.2, 38 10.8, 58 12.4 S 86 13.6, 99 14.6' fill='none' stroke='%23d92d20' stroke-width='1.8' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 0 top 52%, left 0 top 52%;
+  background-size: 0% 100%, 0% 100%;
+}
+.scratch-text[data-on="true"] {
+  background-size: 100% 100%, 100% 100%;
+  animation: scratch-in 0.7s cubic-bezier(0.65, 0, 0.35, 1) 0.08s both;
+}
+/* First stroke sweeps across, the second follows it, like two quick marker passes. */
+@keyframes scratch-in {
+  0% { background-size: 0% 100%, 0% 100%; }
+  55% { background-size: 100% 100%, 15% 100%; }
+  100% { background-size: 100% 100%, 100% 100%; }
+}
+
+/* First-visit intro: hidden unless the boot script marked this load to play it. */
+.intro-overlay { display: none; }
+html[data-intro="play"] .intro-overlay {
+  display: block;
+  /* Fail-safe: never leave the page covered if scripts fail to load. */
+  animation: intro-failsafe 0s linear 12s forwards;
+}
+html[data-intro="play"] body { overflow: hidden; }
+@keyframes intro-failsafe { to { visibility: hidden; pointer-events: none; } }
+.intro-cursor { animation: intro-blink 1s steps(1, end) infinite; }
+@keyframes intro-blink { 50% { opacity: 0; } }
