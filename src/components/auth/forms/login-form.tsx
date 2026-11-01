@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
-import { loginSchema, firstError } from "@/lib/auth/schemas";
+import { loginSchema } from "@/lib/auth/schemas";
 import { safeNext } from "@/lib/auth/redirect";
 import { loadSession, readPendingSave } from "@/lib/client/account";
 import { useApp } from "@/lib/client/store";
 import { Button } from "@/components/ui/button";
 import { AuthHeading, Field, FormAlert, PasswordField, postJson } from "../auth-ui";
+
+type FieldErrors = Partial<Record<"email" | "password", string>>;
 
 export function LoginForm() {
   const params = useSearchParams();
@@ -25,6 +27,7 @@ export function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; kind?: string } | null>(null);
   const [resent, setResent] = useState<"idle" | "sending" | "sent">("idle");
@@ -33,7 +36,17 @@ export function LoginForm() {
     e.preventDefault();
     if (busy) return;
     const parsed = loginSchema.safeParse({ email, password });
-    if (!parsed.success) return setError({ message: firstError(parsed.error) });
+    if (!parsed.success) {
+      const nextErrors: FieldErrors = {};
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0];
+        if ((field === "email" || field === "password") && !nextErrors[field]) nextErrors[field] = issue.message;
+      }
+      setFieldErrors(nextErrors);
+      setError(null);
+      return;
+    }
+    setFieldErrors({});
     setBusy(true);
     setError(null);
     const r = await postJson("/api/auth/login", { email: parsed.data.email, password, next });
@@ -79,14 +92,15 @@ export function LoginForm() {
             )}
           </FormAlert>
         )}
-        <Field label="Email" type="email" name="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+        <Field label="Email" type="email" name="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => { setEmail(e.target.value); setFieldErrors((current) => ({ ...current, email: undefined })); }} error={fieldErrors.email} placeholder="you@example.com" />
         <PasswordField
           label="Password"
           name="password"
           autoComplete="current-password"
           required
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => { setPassword(e.target.value); setFieldErrors((current) => ({ ...current, password: undefined })); }}
+          error={fieldErrors.password}
           extra={
             <Link href="/forgot-password" className="text-[13px] font-semibold text-brand-ink hover:underline">
               Forgot password?

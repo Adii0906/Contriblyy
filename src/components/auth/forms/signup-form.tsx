@@ -56,7 +56,7 @@ export function SignupForm() {
     if (Object.keys(e).length) return;
     setBusy(true);
     setFormError(null);
-    const r = await postJson<{ status?: string }>("/api/auth/signup", { name: name.trim() || undefined, email: email.trim(), password, next });
+    const r = await postJson<{ status?: string }>("/api/auth/signup", { name: name.trim(), email: email.trim(), password, next });
     setBusy(false);
     if (!r.ok) return setFormError({ message: r.data.error ?? "Could not create your account.", kind: r.data.kind });
     if (r.data.status === "verify-email") return setSentTo(email.trim());
@@ -86,7 +86,7 @@ export function SignupForm() {
             )}
           </FormAlert>
         )}
-        <Field label="Name" optional name="name" autoComplete="name" value={name} onChange={(e) => { setName(e.target.value); setErrors((x) => ({ ...x, name: undefined })); }} error={errors.name} placeholder="How we greet you" maxLength={60} />
+        <Field label="Name" name="name" autoComplete="name" required value={name} onChange={(e) => { setName(e.target.value); setErrors((x) => ({ ...x, name: undefined })); }} error={errors.name} placeholder="How we greet you" maxLength={60} />
         <Field label="Email" type="email" name="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => { setEmail(e.target.value); setErrors((x) => ({ ...x, email: undefined })); }} error={errors.email} placeholder="you@example.com" />
         <PasswordField label="Password" name="new-password" autoComplete="new-password" required value={password} onChange={(e) => { setPassword(e.target.value); setErrors((x) => ({ ...x, password: undefined })); }} error={errors.password} showStrength email={email} maxLength={72} />
         <PasswordField label="Confirm password" name="confirm-password" autoComplete="new-password" required value={confirm} onChange={(e) => { setConfirm(e.target.value); setErrors((x) => ({ ...x, confirm: undefined })); }} error={errors.confirm} maxLength={72} />
@@ -95,7 +95,7 @@ export function SignupForm() {
           {busy ? "Creating account" : "Create account"}
           {!busy && <ArrowRight aria-hidden />}
         </Button>
-        <p className="text-center text-[12.5px] leading-relaxed text-muted">We store your email, an optional name, your skills and the issues you save. Nothing else.</p>
+        <p className="text-center text-[12.5px] leading-relaxed text-muted">We store your name, email, skills and the issues you save. Nothing else.</p>
       </form>
     </>
   );

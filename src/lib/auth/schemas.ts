@@ -19,10 +19,9 @@ export const passwordSchema = z
 export const nameSchema = z
   .string()
   .trim()
+  .min(1, "Enter your name.")
   .max(60, "Keep your name under 60 characters.")
-  .regex(/^[^<>\u0000-\u001f]*$/, "Your name contains characters we can't use.")
-  .optional()
-  .transform((v) => (v ? v : undefined));
+  .regex(/^[^<>\u0000-\u001f]*$/, "Your name contains characters we can't use.");
 
 export const nextSchema = z.string().max(512).optional();
 

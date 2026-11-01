@@ -87,18 +87,22 @@ export function Field({
   hint,
   error,
   optional,
+  required,
   ...input
 }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string; error?: string; optional?: boolean }) {
   const id = useId();
   return (
     <div>
       <label htmlFor={id} className="mb-1.5 flex items-baseline justify-between text-[13px] font-bold text-ink">
-        {label}
+        <span>
+          {label}
+          {required && <span aria-hidden="true" className="ml-1 text-bad">*</span>}
+        </span>
         {optional && <span className="text-[12px] font-medium text-muted">Optional</span>}
       </label>
-      <input id={id} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined} className={inputCls} {...input} />
+      <input id={id} aria-label={label} required={required} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined} className={inputCls} {...input} />
       {error ? (
-        <p id={`${id}-err`} className="mt-1.5 text-[13px] font-semibold text-bad">
+        <p id={`${id}-err`} aria-live="polite" className="mt-1.5 text-[13px] font-semibold text-bad">
           {error}
         </p>
       ) : hint ? (
@@ -116,6 +120,7 @@ export function PasswordField({
   showStrength,
   email,
   extra,
+  required,
   ...input
 }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string; showStrength?: boolean; email?: string; extra?: React.ReactNode }) {
   const id = useId();
@@ -127,11 +132,12 @@ export function PasswordField({
       <div className="mb-1.5 flex items-baseline justify-between">
         <label htmlFor={id} className="text-[13px] font-bold text-ink">
           {label}
+          {required && <span aria-hidden="true" className="ml-1 text-bad">*</span>}
         </label>
         {extra}
       </div>
       <div className="relative">
-        <input id={id} type={visible ? "text" : "password"} aria-invalid={Boolean(error)} aria-describedby={`${id}-desc`} className={cn(inputCls, "pr-12")} {...input} />
+        <input id={id} aria-label={label} type={visible ? "text" : "password"} required={required} aria-invalid={Boolean(error)} aria-describedby={`${id}-desc`} className={cn(inputCls, "pr-12")} {...input} />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}

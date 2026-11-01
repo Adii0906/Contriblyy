@@ -45,17 +45,22 @@ describe("safeHref", () => {
 
 describe("auth validation", () => {
   it("validates signup input", () => {
-    expect(signupSchema.safeParse({ email: "a@b.co", password: "longenough" }).success).toBe(true);
-    expect(signupSchema.safeParse({ email: "nope", password: "longenough" }).success).toBe(false);
-    expect(signupSchema.safeParse({ email: "a@b.co", password: "short" }).success).toBe(false);
-    expect(signupSchema.safeParse({ email: "a@b.co", password: "x".repeat(73) }).success).toBe(false);
-    expect(signupSchema.safeParse({ email: "a@b.co", password: "longenough", name: "<script>" }).success).toBe(false);
-    const blankName = signupSchema.parse({ email: " a@b.co ", password: "longenough", name: "  " });
-    expect(blankName.name).toBeUndefined();
-    expect(blankName.email).toBe("a@b.co");
+    expect(signupSchema.safeParse({ name: "Ada", email: "a@b.co", password: "longenough" }).success).toBe(true);
+    expect(signupSchema.safeParse({ email: "a@b.co", password: "longenough" }).success).toBe(false);
+    expect(signupSchema.safeParse({ name: "  ", email: "a@b.co", password: "longenough" }).success).toBe(false);
+    expect(signupSchema.safeParse({ name: "Ada", email: "nope", password: "longenough" }).success).toBe(false);
+    expect(signupSchema.safeParse({ name: "Ada", email: "a@b.co", password: "short" }).success).toBe(false);
+    expect(signupSchema.safeParse({ name: "Ada", email: "a@b.co", password: "x".repeat(73) }).success).toBe(false);
+    expect(signupSchema.safeParse({ name: "<script>", email: "a@b.co", password: "longenough" }).success).toBe(false);
+    const validName = signupSchema.parse({ name: " Ada ", email: " a@b.co ", password: "longenough" });
+    expect(validName.name).toBe("Ada");
+    expect(validName.email).toBe("a@b.co");
   });
   it("login requires a password", () => {
+    expect(loginSchema.safeParse({ email: "", password: "" }).success).toBe(false);
     expect(loginSchema.safeParse({ email: "a@b.co", password: "" }).success).toBe(false);
+    expect(loginSchema.safeParse({ email: "", password: "valid-password" }).success).toBe(false);
+    expect(loginSchema.safeParse({ email: "a@b.co", password: "valid-password" }).success).toBe(true);
   });
   it("password strength guidance", () => {
     expect(passwordStrength("short").label).toBe("Too short");

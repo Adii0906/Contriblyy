@@ -17,7 +17,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
 
 const run = Date.now().toString(36);
 const A = { email: `alice-${run}@example.test`, password: "Orange-Kettle-81!", name: "Alice Rao" };
-const B = { email: `bob-${run}@example.test`, password: "Blue-Lantern-27?" };
+const B = { email: `bob-${run}@example.test`, password: "Blue-Lantern-27?", name: "Bob Lee" };
 const NEWPW = "Fresh-Garden-63#";
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ["--no-sandbox"] });
