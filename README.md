@@ -34,10 +34,10 @@ All are server-only (no `NEXT_PUBLIC_` prefix), so none reach the browser bundle
 ## Accounts: Supabase setup
 
 1. **Create a project** at supabase.com, then copy the Project URL and the publishable key into `.env.local`.
-2. **Apply the migration.** Pick one:
-   - SQL editor: paste and run `supabase/migrations/20261025000000_saved_issues_and_preferences.sql`.
+2. **Apply the migrations.** Pick one:
+   - SQL editor: run `supabase/migrations/20261025000000_saved_issues_and_preferences.sql`, then `supabase/migrations/20261101000000_community_reviews.sql`.
    - CLI: `npx supabase link --project-ref <ref>` then `npx supabase db push`.
-3. **Confirm RLS is on.** In Table Editor, `saved_issues` and `user_preferences` should both show *RLS enabled*. In Authentication, Policies, each table should have four policies: select, insert, update and delete own. The migration also revokes all access from `anon` and limits `UPDATE` to content columns, so ownership can't be changed.
+3. **Confirm RLS is on.** In Table Editor, `saved_issues`, `user_preferences`, `community_reviews`, `community_review_reports`, and `community_review_rate_limits` should all show *RLS enabled*. Community reviews are publicly readable through restricted views; writes and reports are limited to authenticated owners, and reporter and rate-limit records are private.
 4. **Authentication, Sign In / Providers, Email:**
    - Keep Email enabled with **Confirm email** on.
    - Set the minimum password length to at least 8.
@@ -64,7 +64,7 @@ All are server-only (no `NEXT_PUBLIC_` prefix), so none reach the browser bundle
 - Route handlers:
   - `/api/auth/{signup,login,logout,forgot,reset,resend,session}`
   - `/auth/confirm`, which handles `token_hash` and PKCE `code` links and redirects only to same-origin paths
-  - `/api/saved` (GET, POST, DELETE), `/api/saved/import`, `/api/preferences` (GET, PUT)
+  - `/api/saved` (GET, POST, DELETE), `/api/saved/import`, `/api/preferences` (GET, PUT), `/api/reviews` (GET, POST, PATCH, DELETE), `/api/reviews/report` (POST)
 - Identity comes from `supabase.auth.getClaims()` on the server. The app never accepts a user ID from the client, and the database fills `user_id` from `auth.uid()`.
 - State-changing routes check Origin and Fetch-Metadata, validate bodies with Zod and cap their size, and apply per-IP rate limits:
   - login: 20/min per IP, plus 6/min per email
@@ -72,6 +72,7 @@ All are server-only (no `NEXT_PUBLIC_` prefix), so none reach the browser bundle
   - reset email: 4/min
   - verification resend: 3/min
   - saves: 60/min
+- Community reviews also enforce per-user limits in the database, a unique review per account, strict rating/text constraints, and identity fields derived from the caller's Supabase Auth account. A report is private and can be filed once per review by each authenticated account.
 - Supabase applies its own limits on top.
 - Logs record event names and Supabase error codes only. They never include emails, passwords, tokens or cookies.
 - Saving while signed out opens a log-in or sign-up prompt. The chosen issue is kept in `sessionStorage` (this tab only, one hour) and offered after sign-in with "Save this issue?". It's an intent, not stored data.
@@ -115,10 +116,10 @@ All are server-only (no `NEXT_PUBLIC_` prefix), so none reach the browser bundle
 
 ## Testing
 
-- **`npm test`** runs 156 tests (plus one placeholder that only runs when PostgreSQL is missing):
+- **`npm test`** runs the Vitest suite:
   - Verification, matching, discovery and integration tests against the fixture GitHub server.
   - Auth unit tests: open-redirect protection, link sanitising, input validation, password guidance, error mapping that never leaks internals, and saved-issue and preference payloads.
-  - **RLS tests on a real PostgreSQL 16 server**, using the real migration file (`tests/rls.test.ts`). They cover:
+  - **RLS tests on a real PostgreSQL 16 server**, using the real migrations (`tests/rls.test.ts`, `tests/community-reviews-rls.test.ts`). They cover:
     - own-row access
     - cross-user read, update and delete attempts
     - inserting rows owned by someone else
@@ -127,6 +128,7 @@ All are server-only (no `NEXT_PUBLIC_` prefix), so none reach the browser bundle
     - duplicate saves
     - check constraints
     - cascade on user deletion
+  - Community-review request validation and RLS/ownership checks (`tests/reviews.test.ts`, `tests/community-reviews-rls.test.ts`).
   - The RLS suite needs PostgreSQL server binaries (`initdb`, `pg_ctl`); set `PG_BIN` if they're not on PATH. It skips with a notice when they're missing.
 - **`tests/e2e/landing.mjs`**: the first-visit intro (typing order, length, Skip intro button, Escape, reduced motion, no replay on return), the full-title scratch on NOT RECOMMENDED issues at 1440, 768, 390 and 320px including short and multiline titles, and the Log in and Create account buttons at the same widths.
 - **`tests/e2e/journey.mjs`**: the product journey covering search, verification, filters, error and empty states, mobile and reduced motion.

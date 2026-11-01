@@ -7,6 +7,7 @@ import { HeroStage } from "@/components/landing/hero-stage";
 import { Workflow } from "@/components/landing/workflow";
 import { VerificationDemo } from "@/components/landing/verification-demo";
 import { Reveal } from "@/components/landing/reveal";
+import { CommunityReviews } from "@/components/landing/community-reviews";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -172,6 +173,8 @@ export default function Landing() {
             </div>
           </Reveal>
         </section>
+
+        <CommunityReviews />
 
         {/* Final CTA */}
         <section className="px-5 pb-20 sm:px-8">
