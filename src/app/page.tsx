@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CircleDot, Clock3, GitPullRequestArrow, MessageSquareText, Minus, ScrollText, UserRoundX } from "lucide-react";
 import { Logo } from "@/components/brand";
 import { LandingAccount, StartLink } from "@/components/landing/start-link";
-import { Intro, INTRO_BOOT_SCRIPT } from "@/components/landing/intro";
+import { Intro } from "@/components/landing/intro";
 import { HeroStage } from "@/components/landing/hero-stage";
 import { Workflow } from "@/components/landing/workflow";
 import { VerificationDemo } from "@/components/landing/verification-demo";
@@ -36,8 +36,6 @@ const FACTS: [string, string][] = [
 export default function Landing() {
   return (
     <div className="relative overflow-x-clip">
-      {/* Runs before first paint: decides whether the first-visit intro plays. */}
-      <script dangerouslySetInnerHTML={{ __html: INTRO_BOOT_SCRIPT }} />
       <Intro />
       <header className="relative z-20 mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-4 py-5 min-[380px]:px-5 sm:px-8">
         <Logo className="shrink-0 max-[359px]:[&>span]:sr-only" />

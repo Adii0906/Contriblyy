@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { motion } from "motion/react";
-import { Bookmark, Compass, History, Settings, Sparkles, SlidersHorizontal } from "lucide-react";
+import { Bookmark, Compass, History, Settings, Sparkles, SlidersHorizontal, Star } from "lucide-react";
 import { MobileAccount, SidebarAccount } from "@/components/auth/account-menu";
 import { Logo } from "@/components/brand";
 import { useApp } from "@/lib/client/store";
@@ -17,6 +17,7 @@ const NAV = [
   { href: "/app/saved", label: "Saved issues", short: "Saved", icon: Bookmark },
   { href: "/app/history", label: "Search history", short: "History", icon: History },
   { href: "/app/skills", label: "My skills", short: "Skills", icon: SlidersHorizontal },
+  { href: "/app/review", label: "Write a Review", icon: Star },
   { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 

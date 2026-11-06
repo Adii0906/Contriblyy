@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "@fontsource-variable/space-grotesk";
 import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource-variable/jetbrains-mono";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { INTRO_BOOT_SCRIPT } from "@/lib/landing-intro";
 
 export const metadata: Metadata = {
   title: "Contribly: find open-source issues worth your time",
@@ -20,6 +22,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body className="min-h-full">
+        <Script id="landing-intro-boot" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: INTRO_BOOT_SCRIPT }} />
         <Providers>{children}</Providers>
       </body>
     </html>

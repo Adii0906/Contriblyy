@@ -4,18 +4,15 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LogoMark } from "@/components/brand";
 import { cn } from "@/lib/utils";
+import { INTRO_KEY } from "@/lib/landing-intro";
 
 /*
   First-visit intro. Whether it plays is decided before first paint by
-  INTRO_BOOT_SCRIPT (rendered inline in the landing page), which sets
+  the beforeInteractive boot script in the root layout, which sets
   <html data-intro="play">. CSS keeps the overlay hidden otherwise, so returning
   visitors never see a flash. It never plays with prefers-reduced-motion.
   Append ?intro=1 to the URL to replay it.
 */
-
-export const INTRO_KEY = "contribly:intro-seen";
-
-export const INTRO_BOOT_SCRIPT = `(function(){try{var d=document.documentElement;var force=/[?&]intro=1(?:&|$)/.test(location.search);var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;if(force||(!reduce&&!localStorage.getItem('${INTRO_KEY}'))){d.setAttribute('data-intro','play');}}catch(e){}})();`;
 
 export const PHRASES = [
   "Start your first contribution.",
