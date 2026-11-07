@@ -26,6 +26,7 @@ interface ReviewPage {
   averageRating: number | null;
   isAuthenticated: boolean;
   myReview: Review | null;
+  myReviewError: string | null;
 }
 
 const PAGE_SIZE = 6;
@@ -147,6 +148,7 @@ export function CommunityReviews() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [myReviewError, setMyReviewError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -158,6 +160,7 @@ export function CommunityReviews() {
     const result = data as unknown as ReviewPage;
     setItems((previous) => append ? [...previous, ...result.items] : result.items);
     setMyReview(result.myReview);
+    setMyReviewError(result.myReviewError);
     setIsAuthenticated(result.isAuthenticated);
     setReviewCount(result.reviewCount);
     setAverageRating(result.averageRating);
@@ -192,6 +195,10 @@ export function CommunityReviews() {
     setError(null);
     if (!isAuthenticated) {
       router.push(`/login?next=${encodeURIComponent("/#community-reviews")}`);
+      return;
+    }
+    if (myReviewError) {
+      setError(myReviewError);
       return;
     }
     setRating(myReview?.rating ?? 0);
@@ -302,7 +309,7 @@ export function CommunityReviews() {
                 Delete your review
               </Button>
             )}
-            <Button type="button" variant="primary" size="md" onClick={openEditor}>
+            <Button type="button" variant="primary" size="md" onClick={openEditor} disabled={Boolean(myReviewError)}>
               {myReview ? "Edit your review" : "Write a review"}
             </Button>
           </div>
@@ -319,6 +326,7 @@ export function CommunityReviews() {
 
         {message && <p role="status" className="mt-5 rounded-xl border border-ok/20 bg-ok-soft px-4 py-3 text-sm font-semibold text-ok">{message}</p>}
         {error && <p role="alert" className="mt-5 rounded-xl border border-bad/20 bg-bad-soft px-4 py-3 text-sm font-semibold text-bad">{error}</p>}
+        {myReviewError && <p role="alert" className="mt-5 rounded-xl border border-bad/20 bg-bad-soft px-4 py-3 text-sm font-semibold text-bad">{myReviewError}</p>}
 
         {loading ? (
           <div className="mt-9 grid min-h-[220px] gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading community reviews" aria-busy="true">

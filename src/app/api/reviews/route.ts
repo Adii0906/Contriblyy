@@ -20,12 +20,19 @@ interface ReviewRow {
   updated_at: string;
 }
 
+interface SupabaseQueryError {
+  code?: string;
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+}
+
 function consumeUserLimit(bucket: string, userId: string, capacity: number) {
   const result = takeToken(`${bucket}:user:${userId}`, capacity, capacity);
   return result.ok ? null : fail(429, `Too many attempts. Try again in ${result.retryAfter}s.`, { retryAfter: result.retryAfter });
 }
 
-async function getMyReview(supabase: SupabaseClient): Promise<{ review: ReviewRow | null; error: unknown }> {
+async function getMyReview(supabase: SupabaseClient): Promise<{ review: ReviewRow | null; error: SupabaseQueryError | null }> {
   const { data, error } = await supabase.rpc("community_review_mine");
   if (error) return { review: null, error };
   const rows = data as ReviewRow[] | null;
@@ -54,23 +61,36 @@ export async function GET(req: Request) {
   const parsedPage = Number(url.searchParams.get("page") ?? "0");
   if (!Number.isSafeInteger(parsedPage) || parsedPage < 0 || parsedPage > 100_000) return fail(400, "Invalid review page.");
 
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
+  const { data: claims, error: claimsError } = await supabase.auth.getClaims();
+  const isAuthenticated = !claimsError && claims?.claims?.role === "authenticated" && typeof claims.claims.sub === "string";
+  const userId = isAuthenticated ? claims.claims.sub : null;
   const start = parsedPage * PAGE_SIZE;
 
-  const [reviewsResult, statsResult, mineResult] = await Promise.all([
+  const [reviewsResult, statsResult] = await Promise.all([
     supabase.from("community_reviews_public").select(REVIEW_COLUMNS).order("created_at", { ascending: false }).range(start, start + PAGE_SIZE),
     supabase.from("community_review_stats").select("review_count, average_rating").single(),
-    userId ? getMyReview(supabase) : Promise.resolve({ review: null, error: null }),
   ]);
 
-  if (reviewsResult.error || statsResult.error || mineResult.error) {
+  if (reviewsResult.error || statsResult.error) {
     log("error", "community_reviews.list_failed", {
       reviewsCode: reviewsResult.error?.code,
+      reviewsMessage: reviewsResult.error?.message,
       statsCode: statsResult.error?.code,
-      mineCode: (mineResult.error as { code?: string } | null)?.code,
+      statsMessage: statsResult.error?.message,
     });
     return fail(502, "Could not load community reviews. Please try again.");
+  }
+
+  const mineResult = userId
+    ? await getMyReview(supabase)
+    : { review: null, error: null };
+  if (mineResult.error) {
+    log("error", "community_reviews.own_review_failed", {
+      code: mineResult.error.code,
+      message: mineResult.error.message,
+      details: mineResult.error.details,
+      hint: mineResult.error.hint,
+    });
   }
 
   const pageRows = (reviewsResult.data ?? []) as ReviewRow[];
@@ -84,8 +104,9 @@ export async function GET(req: Request) {
     page: parsedPage,
     reviewCount,
     averageRating,
-    isAuthenticated: Boolean(userId),
+    isAuthenticated,
     myReview: mineResult.review ? toReview(mineResult.review) : null,
+    myReviewError: mineResult.error ? "Could not load your review. Refresh the page before creating or editing a review." : null,
   });
 }
 
@@ -129,7 +150,12 @@ export async function PATCH(req: Request) {
 
   const current = await getMyReview(auth.supabase);
   if (current.error) {
-    log("error", "community_reviews.own_review_failed", { code: (current.error as { code?: string }).code });
+    log("error", "community_reviews.own_review_failed", {
+      code: current.error.code,
+      message: current.error.message,
+      details: current.error.details,
+      hint: current.error.hint,
+    });
     return fail(502, "Could not load your review. Please try again.");
   }
   if (!current.review) return fail(404, "You do not have a review to edit.");
@@ -160,7 +186,12 @@ export async function DELETE(req: Request) {
 
   const current = await getMyReview(auth.supabase);
   if (current.error) {
-    log("error", "community_reviews.own_review_failed", { code: (current.error as { code?: string }).code });
+    log("error", "community_reviews.own_review_failed", {
+      code: current.error.code,
+      message: current.error.message,
+      details: current.error.details,
+      hint: current.error.hint,
+    });
     return fail(502, "Could not load your review. Please try again.");
   }
   if (!current.review) return fail(404, "You do not have a review to delete.");

@@ -92,6 +92,31 @@ describe.skipIf(!hasPg)("community review database security (real PostgreSQL)", 
     expect(aliceReview).toHaveLength(1);
     expect(aliceReview[0].review_text).toBe("This review is long enough to be valid.");
     expect(bobReview).toHaveLength(0);
+    await expect(as(null, (client) => client.query("select * from public.community_review_mine()"))).rejects.toThrow(/permission denied/);
+  });
+
+  it("restricts the private RPC to authenticated and keeps its definer configuration safe", async () => {
+    const result = await admin.query(`
+      select
+        p.prosecdef,
+        p.proconfig,
+        pg_get_userbyid(p.proowner) as owner,
+        has_function_privilege('authenticated', p.oid, 'execute') as authenticated_can_execute,
+        has_function_privilege('anon', p.oid, 'execute') as anon_can_execute,
+        (select count(*) from pg_proc x join pg_namespace n on n.oid = x.pronamespace
+          where n.nspname = 'public' and x.proname = 'community_review_mine') as overload_count
+      from pg_proc p
+      where p.oid = 'public.community_review_mine()'::regprocedure
+    `);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({
+      prosecdef: true,
+      authenticated_can_execute: true,
+      anon_can_execute: false,
+      overload_count: "1",
+    });
+    expect(result.rows[0].proconfig).toContain("search_path=\"\"");
+    expect(result.rows[0].owner).toBe("postgres");
   });
 
   it("enforces one review per user and does not permit identity spoofing", async () => {
