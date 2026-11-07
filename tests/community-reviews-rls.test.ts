@@ -75,7 +75,23 @@ describe.skipIf(!hasPg)("community review database security (real PostgreSQL)", 
     expect(publicRows[0].review_text).toBe("This review is long enough to be valid.");
     const stats = await as(null, async (client) => (await client.query("select review_count, average_rating from public.community_review_stats")).rows[0]);
     expect(stats).toEqual({ review_count: "1", average_rating: "5.00" });
+    const viewOptions = await admin.query(
+      "select relname, reloptions from pg_class where oid in ('public.community_reviews_public'::regclass, 'public.community_review_stats'::regclass)",
+    );
+    expect(viewOptions.rows).toHaveLength(2);
+    for (const view of viewOptions.rows as { reloptions: string[] | null }[]) {
+      expect(view.reloptions).toContain("security_invoker=true");
+    }
     await expect(as(null, (client) => client.query("select * from public.community_reviews"))).rejects.toThrow(/permission denied/);
+  });
+
+  it("lets a signed-in user load only their own review through the private RPC", async () => {
+    await createReview(ALICE);
+    const aliceReview = await as(ALICE, async (client) => (await client.query("select * from public.community_review_mine()")).rows);
+    const bobReview = await as(BOB, async (client) => (await client.query("select * from public.community_review_mine()")).rows);
+    expect(aliceReview).toHaveLength(1);
+    expect(aliceReview[0].review_text).toBe("This review is long enough to be valid.");
+    expect(bobReview).toHaveLength(0);
   });
 
   it("enforces one review per user and does not permit identity spoofing", async () => {

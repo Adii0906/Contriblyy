@@ -6,12 +6,14 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { loginSchema } from "@/lib/auth/schemas";
 import { safeNext } from "@/lib/auth/redirect";
-import { loadSession, readPendingSave } from "@/lib/client/account";
+import { afterSignIn, loadSession, readPendingSave } from "@/lib/client/account";
 import { useApp } from "@/lib/client/store";
+import type { AccountUser } from "@/lib/client/store";
 import { Button } from "@/components/ui/button";
 import { AuthHeading, Field, FormAlert, PasswordField, postJson } from "../auth-ui";
 
 type FieldErrors = Partial<Record<"email" | "password", string>>;
+type LoginResponse = { status?: string; user?: AccountUser | null };
 
 export function LoginForm() {
   const params = useSearchParams();
@@ -49,12 +51,18 @@ export function LoginForm() {
     setFieldErrors({});
     setBusy(true);
     setError(null);
-    const r = await postJson("/api/auth/login", { email: parsed.data.email, password, next });
+    const r = await postJson<LoginResponse>("/api/auth/login", { email: parsed.data.email, password, next });
     if (!r.ok) {
       setBusy(false);
       return setError({ message: r.data.error ?? "Could not log you in.", kind: r.data.kind });
     }
-    await loadSession();
+    if (r.data.user) {
+      useApp.getState().setAuth({ status: "signed-in", user: r.data.user, expired: false });
+      void afterSignIn();
+    } else {
+      void loadSession({ quiet: true });
+    }
+    setBusy(false);
     useApp.getState().toast("ok", "Welcome back.");
     router.replace(next);
   };

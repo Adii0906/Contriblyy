@@ -9,6 +9,3 @@ alter view public.community_review_stats
 -- column referenced by the view, including columns used only in WHERE clauses.
 grant select (id, rating, review_text, display_name, github_username, avatar_url, created_at, updated_at, is_published)
   on public.community_reviews to anon, authenticated;
-
-grant select (rating, is_published)
-  on public.community_reviews to anon, authenticated;
