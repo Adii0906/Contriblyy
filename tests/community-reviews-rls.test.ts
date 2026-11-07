@@ -73,6 +73,8 @@ describe.skipIf(!hasPg)("community review database security (real PostgreSQL)", 
     expect(publicRows).toHaveLength(1);
     expect(publicRows[0]).not.toHaveProperty("user_id");
     expect(publicRows[0].review_text).toBe("This review is long enough to be valid.");
+    const stats = await as(null, async (client) => (await client.query("select review_count, average_rating from public.community_review_stats")).rows[0]);
+    expect(stats).toEqual({ review_count: "1", average_rating: "5.00" });
     await expect(as(null, (client) => client.query("select * from public.community_reviews"))).rejects.toThrow(/permission denied/);
   });
 

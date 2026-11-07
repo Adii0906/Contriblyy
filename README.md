@@ -36,7 +36,7 @@ Database requests use the publishable key and the signed-in user's session, so R
 
 1. **Create a project** at supabase.com, then copy the Project URL and the publishable key into `.env.local`.
 2. **Apply the migrations.** Pick one:
-   - SQL editor: run `supabase/migrations/20261025000000_saved_issues_and_preferences.sql`, then `supabase/migrations/20261101000000_community_reviews.sql`.
+   - SQL editor: run the files in `supabase/migrations` in filename order.
    - CLI: `npx supabase link --project-ref <ref>` then `npx supabase db push`.
 3. **Confirm RLS is on.** In Table Editor, `saved_issues`, `user_preferences`, `community_reviews`, `community_review_reports`, and `community_review_rate_limits` should all show *RLS enabled*. Community reviews are publicly readable through restricted views; writes and reports are limited to authenticated owners, and reporter and rate-limit records are private.
 4. **Authentication, Sign In / Providers, Email:**
@@ -78,6 +78,7 @@ Database requests use the publishable key and the signed-in user's session, so R
   - verification resend: 3/min
   - saves: 60/min
 - Community reviews also enforce per-user limits in the database, a unique review per account, strict rating/text constraints, and identity fields derived from the caller's Supabase Auth account. A report is private and can be filed once per review by each authenticated account.
+- Public community review views use `security_invoker = true`; apply all migrations so their underlying column grants and RLS policies are in place.
 - Supabase applies its own limits on top.
 - Logs record event names and Supabase error codes only. They never include emails, passwords, tokens or cookies.
 - Saving while signed out opens a log-in or sign-up prompt. The chosen issue is kept in `sessionStorage` (this tab only, one hour) and offered after sign-in with "Save this issue?". It's an intent, not stored data.
