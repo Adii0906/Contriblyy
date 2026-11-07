@@ -3,6 +3,7 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/auth/redirect";
 import { log } from "@/lib/server/log";
+import { clientKey } from "@/lib/server/rate-limit";
 
 const TYPES: EmailOtpType[] = ["signup", "email", "recovery", "invite", "magiclink", "email_change"];
 
@@ -21,7 +22,7 @@ export async function GET(req: Request) {
   const next = safeNext(url.searchParams.get("next"), fallback);
   const fail = (reason: string) => NextResponse.redirect(new URL(`/auth/error?reason=${reason}`, url.origin));
 
-  const supabase = await createSupabaseServer();
+  const supabase = await createSupabaseServer(clientKey(req));
   if (!supabase) return fail("unconfigured");
 
   if (tokenHash && type && TYPES.includes(type)) {

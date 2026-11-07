@@ -7,7 +7,7 @@ import { useId, useState } from "react";
 import { Logo } from "@/components/brand";
 import { Tick, ScratchX } from "@/components/ui/marks";
 import { TestModeBanner } from "@/components/app/test-mode-banner";
-import { passwordStrength } from "@/lib/auth/schemas";
+import { passwordRequirements, passwordStrength } from "@/lib/auth/schemas";
 import { cn } from "@/lib/utils";
 
 /** Split layout: form on warm white, brand panel in orange. */
@@ -118,15 +118,15 @@ export function PasswordField({
   label,
   error,
   showStrength,
-  email,
   extra,
   required,
   ...input
-}: React.InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string; showStrength?: boolean; email?: string; extra?: React.ReactNode }) {
+}: React.InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string; showStrength?: boolean; extra?: React.ReactNode }) {
   const id = useId();
   const [visible, setVisible] = useState(false);
   const value = String(input.value ?? "");
-  const strength = showStrength && value ? passwordStrength(value, email) : null;
+  const strength = showStrength ? passwordStrength(value) : null;
+  const requirements = showStrength ? passwordRequirements(value) : [];
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between">
@@ -150,18 +150,27 @@ export function PasswordField({
       </div>
       <div id={`${id}-desc`}>
         {error && <p className="mt-1.5 text-[13px] font-semibold text-bad">{error}</p>}
-        {strength && !error && (
-          <div className="mt-2" aria-live="polite">
-            <div className="flex gap-1" aria-hidden>
-              {[1, 2, 3, 4].map((n) => (
+        {strength && (
+          <div className="mt-2">
+            <p className="mb-1.5 text-[12.5px] font-bold text-ink-2">Password requirements</p>
+            <ul aria-label="Password requirements" className="space-y-1">
+              {requirements.map((requirement) => (
+                <li key={requirement.id} className={cn("flex items-center gap-1.5 text-[12px]", requirement.met ? "text-ok" : "text-muted")}>
+                  {requirement.met ? <CircleCheck className="size-3.5 shrink-0" aria-hidden /> : <span className="size-3.5 shrink-0 rounded-full border border-line-strong" aria-hidden />}
+                  <span>{requirement.label}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex gap-1" aria-hidden>
+              {[1, 2, 3].map((n) => (
                 <span
                   key={n}
-                  className={cn("h-1.5 flex-1 rounded-full transition-colors duration-200", n <= strength.score ? (strength.score <= 1 ? "bg-bad" : strength.score === 2 ? "bg-[#e9b45c]" : strength.score === 3 ? "bg-brand" : "bg-ok") : "bg-line")}
+                  className={cn("h-1.5 flex-1 rounded-full transition-colors duration-200", n <= strength.score ? (strength.score === 1 ? "bg-bad" : strength.score === 2 ? "bg-[#e9b45c]" : "bg-ok") : "bg-line")}
                 />
               ))}
             </div>
-            <p className="mt-1.5 text-[12.5px] text-muted">
-              <span className="font-bold text-ink-2">{strength.label}.</span> {strength.tips[0] ?? "Looks good."}
+            <p className="mt-1.5 text-[12.5px] text-muted" aria-live="polite">
+              <span className="font-bold text-ink-2">Strength: {strength.label}.</span> {strength.tips[0] ?? "Looks good."}
             </p>
           </div>
         )}

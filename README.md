@@ -27,9 +27,10 @@ All are server-only (no `NEXT_PUBLIC_` prefix), so none reach the browser bundle
 | `GITHUB_TOKEN` | Strongly recommended | GitHub, Settings, Developer settings, Fine-grained tokens. Repository access **Public repositories (read-only)**, no other permissions. |
 | `SUPABASE_URL` | For accounts | Supabase dashboard, Project Settings, Data API: Project URL |
 | `SUPABASE_PUBLISHABLE_KEY` | For accounts | Project Settings, API Keys: publishable key (`sb_publishable_…`). Older projects can use the legacy `anon` key (also accepted as `SUPABASE_ANON_KEY`). |
+| `SUPABASE_SECRET_KEY` | Optional, for Auth IP forwarding | Project Settings, API Keys: secret key (`sb_secret_…`). Used only by server-side Auth routes when IP forwarding is enabled. Never expose it to the browser. |
 | `SITE_URL` | For accounts in production | Your public origin, e.g. `https://contribly.example`. Used in email links. Locally `http://localhost:3000`. |
 
-**Never** add the Supabase service-role or secret key. Contribly doesn't use it: every database call runs as the signed-in user and is limited by Row Level Security.
+Database requests use the publishable key and the signed-in user's session, so Row Level Security remains in force. The optional secret key is used only for Auth requests that forward a proxy-reported client IP; it is never sent to the browser or used for database access. Do not use the legacy service-role key.
 
 ## Accounts: Supabase setup
 
@@ -52,10 +53,14 @@ All are server-only (no `NEXT_PUBLIC_` prefix), so none reach the browser bundle
    - **Confirm signup:** set the link to `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/app`
    - **Reset password:** `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password`
    - If you keep Supabase's default templates, links still work through the PKCE `code` flow, but only when opened in the same browser that started sign-up or reset.
-7. **Email delivery for production.** Supabase's built-in mailer is heavily rate limited and meant for testing. Before launch:
+7. **Email delivery for production.** Supabase's built-in mailer is limited to 2 emails per hour and meant for testing. Before launch:
    - Configure custom SMTP (Authentication, SMTP Settings) with a provider such as Resend, Postmark or Amazon SES.
    - Use a sending domain with SPF and DKIM.
-   - Review Authentication, Rate Limits.
+   - In Authentication, Rate Limits, set **Emails sent by Supabase Auth** to a value the provider can sustain. Custom SMTP starts at 30 emails per hour; increase only after confirming the provider's sending quota and deliverability.
+8. **Server-side Auth rate limits.** Signup and other Auth requests run through the app server. To have Supabase rate-limit by the end user's IP rather than the app server's shared IP:
+   - Add `SUPABASE_SECRET_KEY` as a server-only deployment environment variable (never prefix it with `NEXT_PUBLIC_`).
+   - Enable **IP Address Forwarding** in Authentication, Rate Limits. The app forwards the client IP supplied by the hosting proxy only from server-side Auth routes. Ensure the proxy overwrites or sanitizes `X-Forwarded-For`; do not enable this if clients can supply that header directly.
+   - Keep Supabase's Auth request limits enabled. Review **Sign-ups and sign-ins** against expected traffic; use a modest increase only if the Auth logs show `over_request_rate_limit`, and retain email-send limits based on SMTP capacity.
 
 ### How auth works in the app
 
@@ -68,7 +73,7 @@ All are server-only (no `NEXT_PUBLIC_` prefix), so none reach the browser bundle
 - Identity comes from `supabase.auth.getClaims()` on the server. The app never accepts a user ID from the client, and the database fills `user_id` from `auth.uid()`.
 - State-changing routes check Origin and Fetch-Metadata, validate bodies with Zod and cap their size, and apply per-IP rate limits:
   - login: 20/min per IP, plus 6/min per email
-  - signup: 5/min
+  - signup: 20/min per IP, plus 1/min per IP/email pair
   - reset email: 4/min
   - verification resend: 3/min
   - saves: 60/min
@@ -88,6 +93,7 @@ All are server-only (no `NEXT_PUBLIC_` prefix), so none reach the browser bundle
    | `GITHUB_TOKEN` | ✓ | ✓ |
    | `SUPABASE_URL` | ✓ | ✓ (same project, or a separate staging project) |
    | `SUPABASE_PUBLISHABLE_KEY` | ✓ | ✓ |
+   | `SUPABASE_SECRET_KEY` | Optional for Auth IP forwarding | Optional for Auth IP forwarding |
    | `SITE_URL` | `https://your-domain.example` | leave unset: previews use `VERCEL_BRANCH_URL` |
 
    Keep "Automatically expose System Environment Variables" on. Do not set `CONTRIBLY_TEST_MODE` or `GITHUB_API_URL`.

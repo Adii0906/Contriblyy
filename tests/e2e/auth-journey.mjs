@@ -129,15 +129,34 @@ await step("signup validates input and shows strength guidance", async () => {
   await a.getByRole("button", { name: "Create account" }).click();
   await a.getByText("Enter a valid email address.").waitFor();
   await a.getByText("Passwords don't match.").waitFor();
-  await a.getByText(/easy to guess/).waitFor();
+  await a.getByRole("list", { name: "Password requirements" }).getByText("At least one uppercase letter (A-Z)", { exact: true }).waitFor();
   await shot(a, "03-signup-validation");
+});
+
+await step("duplicate signup submissions send only one request", async () => {
+  let requests = 0;
+  await a.route("**/api/auth/signup", async (route) => {
+    requests++;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "verify-email" }) });
+  });
+  await a.getByLabel("Name").fill("Duplicate Test");
+  await a.getByLabel("Email").fill("duplicate@example.test");
+  await a.getByLabel("Password", { exact: true }).fill(A.password);
+  await a.getByLabel("Confirm password").fill(A.password);
+  await a.getByRole("button", { name: "Create account" }).click();
+  await a.locator("form").evaluate((form) => form.requestSubmit());
+  await a.getByRole("heading", { name: "Check your email" }).waitFor();
+  await a.unroute("**/api/auth/signup");
+  expect(requests === 1, `expected one signup request, got ${requests}`);
+  await a.getByRole("button", { name: "Start over" }).click();
 });
 
 await step("signup requires email verification before login", async () => {
   await a.getByLabel("Name").fill(A.name);
   await a.getByLabel("Email").fill(A.email);
   await a.getByLabel("Password", { exact: true }).fill(A.password);
-  await a.getByText("Strong.", { exact: true }).waitFor();
+  await a.getByText("Strength: Strong.", { exact: true }).waitFor();
   await a.getByLabel("Confirm password").fill(A.password);
   await a.getByRole("button", { name: "Create account" }).click();
   await a.getByRole("heading", { name: "Check your email" }).waitFor();

@@ -23,8 +23,9 @@ export function mapAuthError(e: AuthErrorLike | null | undefined): AuthFailure {
     case "same_password":
       return { kind: "same", status: 400, message: "Choose a password different from your current one." };
     case "over_request_rate_limit":
+      return { kind: "rate", status: 429, message: "Too many authentication requests are coming from this network. Please wait a minute and try again." };
     case "over_email_send_rate_limit":
-      return { kind: "rate", status: 429, message: "Too many attempts. Wait a minute and try again." };
+      return { kind: "rate", status: 429, message: "Email sending is temporarily rate-limited. Please wait a minute before trying again." };
     case "otp_expired":
     case "flow_state_expired":
     case "flow_state_not_found":
@@ -37,7 +38,7 @@ export function mapAuthError(e: AuthErrorLike | null | undefined): AuthFailure {
     case "signup_disabled":
       return { kind: "generic", status: 403, message: "New sign-ups are currently disabled." };
     default:
-      if (e?.status === 429) return { kind: "rate", status: 429, message: "Too many attempts. Wait a minute and try again." };
+      if (e?.status === 429) return { kind: "rate", status: 429, message: "Too many authentication requests. Please wait a minute and try again." };
       return { kind: "generic", status: 400, message: "Something went wrong. Try again in a moment." };
   }
 }

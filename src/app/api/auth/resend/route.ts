@@ -1,8 +1,10 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { mapAuthError } from "@/lib/auth/errors";
 import { emailOnlySchema } from "@/lib/auth/schemas";
 import { confirmUrl } from "@/lib/auth/site-url";
 import { fail, json, limit, readJson, sameOrigin } from "@/lib/server/http";
 import { log } from "@/lib/server/log";
+import { clientKey } from "@/lib/server/rate-limit";
 
 /** Re-sends the sign-up verification email. Same answer whether or not the account exists. */
 export async function POST(req: Request) {
@@ -11,10 +13,13 @@ export async function POST(req: Request) {
   if (limited) return limited;
   const body = await readJson(req, emailOnlySchema, 1024);
   if (!body.ok) return body.res;
-  const supabase = await createSupabaseServer();
+  const supabase = await createSupabaseServer(clientKey(req));
   if (!supabase) return fail(503, "Accounts are not configured on this server.", { code: "auth_unconfigured" });
   const { error } = await supabase.auth.resend({ type: "signup", email: body.data.email, options: { emailRedirectTo: confirmUrl(req, "/app") } });
   if (error) log("warn", "auth.resend_failed", { code: error.code ?? "unknown" });
-  if (error?.status === 429) return fail(429, "Too many attempts. Wait a minute and try again.");
+  if (error) {
+    const failure = mapAuthError(error);
+    if (failure.kind === "rate") return fail(failure.status, failure.message, { kind: failure.kind });
+  }
   return json({ status: "sent" });
 }

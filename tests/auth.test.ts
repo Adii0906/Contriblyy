@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { safeHref, safeNext } from "@/lib/auth/redirect";
-import { loginSchema, passwordStrength, signupSchema } from "@/lib/auth/schemas";
+import { loginSchema, passwordRequirements, passwordStrength, resetSchema, signupSchema } from "@/lib/auth/schemas";
 import { mapAuthError } from "@/lib/auth/errors";
 import { fromRow, issueSummarySchema, saveRequestSchema, toInsertRow } from "@/lib/saved/schemas";
 import { preferencesSchema } from "@/lib/preferences";
@@ -45,16 +45,27 @@ describe("safeHref", () => {
 
 describe("auth validation", () => {
   it("validates signup input", () => {
-    expect(signupSchema.safeParse({ name: "Ada", email: "a@b.co", password: "longenough" }).success).toBe(true);
-    expect(signupSchema.safeParse({ email: "a@b.co", password: "longenough" }).success).toBe(false);
-    expect(signupSchema.safeParse({ name: "  ", email: "a@b.co", password: "longenough" }).success).toBe(false);
-    expect(signupSchema.safeParse({ name: "Ada", email: "nope", password: "longenough" }).success).toBe(false);
+    expect(signupSchema.safeParse({ name: "Ada", email: "a@b.co", password: "Rishibhai@123" }).success).toBe(true);
+    expect(signupSchema.safeParse({ email: "a@b.co", password: "Rishibhai@123" }).success).toBe(false);
+    expect(signupSchema.safeParse({ name: "  ", email: "a@b.co", password: "Rishibhai@123" }).success).toBe(false);
+    expect(signupSchema.safeParse({ name: "Ada", email: "nope", password: "Rishibhai@123" }).success).toBe(false);
     expect(signupSchema.safeParse({ name: "Ada", email: "a@b.co", password: "short" }).success).toBe(false);
     expect(signupSchema.safeParse({ name: "Ada", email: "a@b.co", password: "x".repeat(73) }).success).toBe(false);
-    expect(signupSchema.safeParse({ name: "<script>", email: "a@b.co", password: "longenough" }).success).toBe(false);
-    const validName = signupSchema.parse({ name: " Ada ", email: " a@b.co ", password: "longenough" });
+    expect(signupSchema.safeParse({ name: "<script>", email: "a@b.co", password: "Rishibhai@123" }).success).toBe(false);
+    const validName = signupSchema.parse({ name: " Ada ", email: " a@b.co ", password: "Rishibhai@123" });
     expect(validName.name).toBe("Ada");
     expect(validName.email).toBe("a@b.co");
+  });
+  it("enforces the same character-category policy on signup and password reset", () => {
+    const missingPolicyPassword = "rishibhai123";
+    expect(signupSchema.safeParse({ name: "Ada", email: "a@b.co", password: missingPolicyPassword }).success).toBe(false);
+    expect(resetSchema.safeParse({ password: missingPolicyPassword }).success).toBe(false);
+    expect(resetSchema.safeParse({ password: "Rishibhai@123" }).success).toBe(true);
+    expect(passwordRequirements("Rishibhai@123").every((requirement) => requirement.met)).toBe(true);
+    expect(passwordRequirements("rishibhai123").find((requirement) => requirement.id === "uppercase")?.met).toBe(false);
+    expect(passwordRequirements("RISHIBHAI@123").find((requirement) => requirement.id === "lowercase")?.met).toBe(false);
+    expect(passwordRequirements("Rishibhai123").find((requirement) => requirement.id === "special")?.met).toBe(false);
+    expect(passwordRequirements("Rishibhai@").find((requirement) => requirement.id === "number")?.met).toBe(false);
   });
   it("login requires a password", () => {
     expect(loginSchema.safeParse({ email: "", password: "" }).success).toBe(false);
@@ -63,10 +74,9 @@ describe("auth validation", () => {
     expect(loginSchema.safeParse({ email: "a@b.co", password: "valid-password" }).success).toBe(true);
   });
   it("password strength guidance", () => {
-    expect(passwordStrength("short").label).toBe("Too short");
-    expect(passwordStrength("password123").score).toBeLessThanOrEqual(1);
-    expect(passwordStrength("alice2024!!", "alice@example.com").tips[0]).toMatch(/email name/);
-    expect(passwordStrength("Orange-Kettle-81!").label).toBe("Strong");
+    expect(passwordStrength("short").label).toBe("Weak");
+    expect(passwordStrength("Rishi@12").label).toBe("Fair");
+    expect(passwordStrength("Rishibhai@123").label).toBe("Strong");
   });
 });
 
@@ -77,6 +87,7 @@ describe("auth error mapping never leaks internals", () => {
     ["user_already_exists", "exists"],
     ["weak_password", "weak"],
     ["over_request_rate_limit", "rate"],
+    ["over_email_send_rate_limit", "rate"],
     ["otp_expired", "expired"],
     ["same_password", "same"],
     ["unexpected_failure", "generic"],
@@ -84,6 +95,15 @@ describe("auth error mapping never leaks internals", () => {
     const f = mapAuthError({ code, message: "internal: db row 123 violated constraint" });
     expect(f.kind).toBe(kind);
     expect(f.message).not.toMatch(/internal|constraint/);
+  });
+  it("gives existing accounts a safe login path", () => {
+    const failure = mapAuthError({ code: "user_already_exists" });
+    expect(failure.status).toBe(409);
+    expect(failure.message).toMatch(/Log in instead/);
+  });
+  it("distinguishes request and email-send rate limits", () => {
+    expect(mapAuthError({ code: "over_request_rate_limit" }).message).toMatch(/network/);
+    expect(mapAuthError({ code: "over_email_send_rate_limit" }).message).toMatch(/Email sending/);
   });
 });
 

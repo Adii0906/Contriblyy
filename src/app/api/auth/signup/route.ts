@@ -6,14 +6,17 @@ import { confirmUrl } from "@/lib/auth/site-url";
 import { currentUser } from "@/lib/auth/session";
 import { fail, json, limit, readJson, sameOrigin } from "@/lib/server/http";
 import { log } from "@/lib/server/log";
+import { clientKey } from "@/lib/server/rate-limit";
 
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return fail(403, "Cross-site request blocked.");
-  const limited = limit(req, "signup", 5);
+  const limited = limit(req, "signup", 20);
   if (limited) return limited;
   const body = await readJson(req, signupSchema, 4096);
   if (!body.ok) return body.res;
-  const supabase = await createSupabaseServer();
+  const emailLimited = limit(req, "signup-email", 1, body.data.email.toLowerCase());
+  if (emailLimited) return emailLimited;
+  const supabase = await createSupabaseServer(clientKey(req));
   if (!supabase) return fail(503, "Accounts are not configured on this server.", { code: "auth_unconfigured" });
 
   const { name, email, password, next } = body.data;

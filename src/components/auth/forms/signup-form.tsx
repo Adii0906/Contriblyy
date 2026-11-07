@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowRight, Loader2, MailCheck } from "lucide-react";
-import { emailSchema, nameSchema, passwordSchema, passwordStrength } from "@/lib/auth/schemas";
+import { emailSchema, nameSchema, passwordSchema } from "@/lib/auth/schemas";
 import { safeNext } from "@/lib/auth/redirect";
 import { loadSession, readPendingSave } from "@/lib/client/account";
 import { useApp } from "@/lib/client/store";
@@ -33,6 +33,7 @@ export function SignupForm() {
   const [formError, setFormError] = useState<{ message: string; kind?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const submitting = useRef(false);
 
   const validate = (): Errors => {
     const e: Errors = {};
@@ -41,8 +42,7 @@ export function SignupForm() {
     const em = emailSchema.safeParse(email);
     if (!em.success) e.email = em.error.issues[0]?.message;
     const pw = passwordSchema.safeParse(password);
-    if (!pw.success) e.password = pw.error.issues[0]?.message;
-    else if (passwordStrength(password, email).score <= 1) e.password = "That password is easy to guess. Make it longer or less predictable.";
+    if (!pw.success) e.password = pw.error.issues.map((issue) => issue.message).join(" ");
     if (!confirm) e.confirm = "Confirm your password.";
     else if (confirm !== password) e.confirm = "Passwords don't match.";
     return e;
@@ -50,19 +50,24 @@ export function SignupForm() {
 
   const submit = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    if (busy) return;
+    if (submitting.current) return;
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length) return;
+    submitting.current = true;
     setBusy(true);
     setFormError(null);
-    const r = await postJson<{ status?: string }>("/api/auth/signup", { name: name.trim(), email: email.trim(), password, next });
-    setBusy(false);
-    if (!r.ok) return setFormError({ message: r.data.error ?? "Could not create your account.", kind: r.data.kind });
-    if (r.data.status === "verify-email") return setSentTo(email.trim());
-    await loadSession();
-    useApp.getState().toast("ok", "Account created. You're signed in.");
-    router.replace(next);
+    try {
+      const r = await postJson<{ status?: string }>("/api/auth/signup", { name: name.trim(), email: email.trim(), password, next });
+      if (!r.ok) return setFormError({ message: r.data.error ?? "Could not create your account.", kind: r.data.kind });
+      if (r.data.status === "verify-email") return setSentTo(email.trim());
+      await loadSession();
+      useApp.getState().toast("ok", "Account created. You're signed in.");
+      router.replace(next);
+    } finally {
+      submitting.current = false;
+      setBusy(false);
+    }
   };
 
   if (sentTo) return <CheckEmail email={sentTo} onRestart={() => setSentTo(null)} />;
@@ -88,7 +93,7 @@ export function SignupForm() {
         )}
         <Field label="Name" name="name" autoComplete="name" required value={name} onChange={(e) => { setName(e.target.value); setErrors((x) => ({ ...x, name: undefined })); }} error={errors.name} placeholder="How we greet you" maxLength={60} />
         <Field label="Email" type="email" name="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => { setEmail(e.target.value); setErrors((x) => ({ ...x, email: undefined })); }} error={errors.email} placeholder="you@example.com" />
-        <PasswordField label="Password" name="new-password" autoComplete="new-password" required value={password} onChange={(e) => { setPassword(e.target.value); setErrors((x) => ({ ...x, password: undefined })); }} error={errors.password} showStrength email={email} maxLength={72} />
+        <PasswordField label="Password" name="new-password" autoComplete="new-password" required value={password} onChange={(e) => { setPassword(e.target.value); setErrors((x) => ({ ...x, password: undefined })); }} error={errors.password} showStrength maxLength={72} />
         <PasswordField label="Confirm password" name="confirm-password" autoComplete="new-password" required value={confirm} onChange={(e) => { setConfirm(e.target.value); setErrors((x) => ({ ...x, confirm: undefined })); }} error={errors.confirm} maxLength={72} />
         <Button type="submit" variant="primary" size="lg" className="w-full" disabled={busy}>
           {busy ? <Loader2 className="animate-spin" aria-hidden /> : null}

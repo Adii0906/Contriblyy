@@ -3,6 +3,7 @@ import { resetSchema } from "@/lib/auth/schemas";
 import { mapAuthError } from "@/lib/auth/errors";
 import { fail, json, limit, readJson, sameOrigin } from "@/lib/server/http";
 import { log } from "@/lib/server/log";
+import { clientKey } from "@/lib/server/rate-limit";
 
 /** Sets a new password. Requires the recovery session created by the reset email link. */
 export async function POST(req: Request) {
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
   if (limited) return limited;
   const body = await readJson(req, resetSchema, 1024);
   if (!body.ok) return body.res;
-  const supabase = await createSupabaseServer();
+  const supabase = await createSupabaseServer(clientKey(req));
   if (!supabase) return fail(503, "Accounts are not configured on this server.", { code: "auth_unconfigured" });
   const { data: claims } = await supabase.auth.getClaims();
   if (!claims?.claims?.sub) return fail(401, "This reset link has expired. Request a new one.", { kind: "expired" });

@@ -4,6 +4,16 @@ import { z } from "zod";
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 72; // bcrypt input limit used by Supabase Auth
 
+export function passwordRequirements(password: string) {
+  return [
+    { id: "length", label: `At least ${PASSWORD_MIN} characters`, met: password.length >= PASSWORD_MIN },
+    { id: "uppercase", label: "At least one uppercase letter (A-Z)", met: /[A-Z]/.test(password) },
+    { id: "lowercase", label: "At least one lowercase letter (a-z)", met: /[a-z]/.test(password) },
+    { id: "number", label: "At least one number (0-9)", met: /[0-9]/.test(password) },
+    { id: "special", label: "At least one special character (for example @, #, ! or $)", met: /[^A-Za-z0-9]/.test(password) },
+  ] as const;
+}
+
 export const emailSchema = z
   .string()
   .trim()
@@ -11,10 +21,19 @@ export const emailSchema = z
   .max(254, "That email address is too long.")
   .email("Enter a valid email address.");
 
-export const passwordSchema = z
-  .string()
-  .min(PASSWORD_MIN, `Use at least ${PASSWORD_MIN} characters.`)
-  .max(PASSWORD_MAX, `Use at most ${PASSWORD_MAX} characters.`);
+export const passwordSchema = z.string().superRefine((password, ctx) => {
+  if (password.length > PASSWORD_MAX) {
+    ctx.addIssue({ code: "custom", message: `Use at most ${PASSWORD_MAX} characters.` });
+  }
+  for (const requirement of passwordRequirements(password)) {
+    if (!requirement.met) {
+      ctx.addIssue({
+        code: "custom",
+        message: requirement.id === "length" ? `Use at least ${PASSWORD_MIN} characters.` : requirement.label,
+      });
+    }
+  }
+});
 
 export const nameSchema = z
   .string()
@@ -31,34 +50,21 @@ export const emailOnlySchema = z.object({ email: emailSchema });
 export const resetSchema = z.object({ password: passwordSchema });
 
 export interface StrengthResult {
-  score: 0 | 1 | 2 | 3 | 4;
-  label: "Too short" | "Weak" | "Fair" | "Good" | "Strong";
+  score: 1 | 2 | 3;
+  label: "Weak" | "Fair" | "Strong";
   tips: string[];
 }
 
-const COMMON = ["password", "123456", "qwerty", "letmein", "welcome", "contribly", "iloveyou", "admin", "github"];
-
-/** Guidance only. Supabase enforces the real policy configured on the project. */
-export function passwordStrength(pw: string, email?: string): StrengthResult {
-  if (pw.length < PASSWORD_MIN) return { score: 0, label: "Too short", tips: [`Use at least ${PASSWORD_MIN} characters.`] };
-  const tips: string[] = [];
-  let score = 0;
-  if (pw.length >= 12) score++;
-  else tips.push("12 or more characters is much stronger.");
-  const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(pw)).length;
-  if (classes >= 3) score++;
-  else tips.push("Mix upper and lower case, numbers and symbols.");
-  if (pw.length >= 16 || classes === 4) score++;
-  const lower = pw.toLowerCase();
-  const local = email?.split("@")[0]?.toLowerCase();
-  const weak = COMMON.some((c) => lower.includes(c)) || (local && local.length >= 3 && lower.includes(local)) || /^(.)\1+$/.test(pw) || /(?:0123|1234|2345|3456|abcd)/.test(lower);
-  if (weak) {
-    score = Math.max(0, score - 2);
-    tips.unshift("Avoid common words, sequences and your email name.");
-  } else score++;
-  const s = Math.min(4, Math.max(1, score)) as 1 | 2 | 3 | 4;
-  const label = (["Weak", "Fair", "Good", "Strong"] as const)[s - 1];
-  return { score: s, label, tips };
+/** Password policy and its UI strength label share the same requirement checks. */
+export function passwordStrength(password: string): StrengthResult {
+  const missing = passwordRequirements(password).filter((requirement) => !requirement.met);
+  if (missing.length) {
+    return { score: 1, label: "Weak", tips: [missing.map((requirement) => requirement.label).join(", ")] };
+  }
+  if (password.length < 12) {
+    return { score: 2, label: "Fair", tips: ["12 or more characters is recommended for a stronger password."] };
+  }
+  return { score: 3, label: "Strong", tips: ["All password requirements are met."] };
 }
 
 export function firstError(err: z.ZodError): string {
